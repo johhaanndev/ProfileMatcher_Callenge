@@ -36,38 +36,15 @@ class GetClientConfig(APIView):
             logger.info(f"Starting to get client config with id: {player_id}")
             player_profile = PlayerProfile.objects.get(player_id=player_id)
 
-            campaigns = Campaign.objects.filter(
-                enabled = True,
-                start_date__lte = datetime.now(),
-                end_date__gte = datetime.now()
-            )
-
+            campaigns = self.get_active_campaigns()
             active_campaigns = []
 
             for campaign in campaigns:
-                match = True
-                matchers = campaign.matchers
-
-                if 'level' in matchers:
-                    if not (matchers['level']['min'] <= player_profile.level <= matchers['level']['max']):
-                        match = False
-
-                if 'has' in matchers:
-                    if 'country' in matchers['has'] and player_profile.country not in matchers['has']['country']:
-                        match = False
-                    if 'items' in matchers['has'] and not any(item in player_profile.inventory for item in matchers['has']['items']):
-                        match = False
-
-                if 'does_not_have' in matchers:
-                    if 'items' in matchers['does_not_have'] and any(item in player_profile.inventory for item in matchers['does_not_have']['items']):
-                        match = False
-
-                if match:
+                if self.does_player_match_campaign(player_profile, campaign):
                     active_campaigns.append(campaign.name)
                 
-                if (active_campaigns):
-                    player_profile.active_campaigns = list(set(player_profile.active_campaigns + active_campaigns))
-                    player_profile.save()
+                if active_campaigns:
+                    self.update_player_profile(player_profile, active_campaigns)
 
                 player_serialized = PlayerProfileSerializer(player_profile)
 
@@ -75,3 +52,37 @@ class GetClientConfig(APIView):
             
         except PlayerProfile.DoesNotExist:
             return Response({"error": "Player not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    def get_active_campaigns(self):
+        logger.info("Get campaigns that are active")
+        return Campaign.objects.filter(
+            enabled=True,
+            start_date__lte=datetime.now(),
+            end_date__gte=datetime.now()
+        )
+
+    def does_player_match_campaign(self, player_profile, campaign):
+        logger.info("Check if the player matches the conditions for the campaign")
+        match = True
+        matchers = campaign.matchers
+
+        if 'level' in matchers:
+            if not (matchers['level']['min'] <= player_profile.level <= matchers['level']['max']):
+                match = False
+
+        if 'has' in matchers:
+            if 'country' in matchers['has'] and player_profile.country not in matchers['has']['country']:
+                match = False
+            if 'items' in matchers['has'] and not any(item in player_profile.inventory for item in matchers['has']['items']):
+                match = False
+
+        if 'does_not_have' in matchers:
+            if 'items' in matchers['does_not_have'] and any(item in player_profile.inventory for item in matchers['does_not_have']['items']):
+                match = False
+
+        return match
+
+    def update_player_profile(self, player_profile, active_campaigns):
+        logger.info("Update the player's profile with the active campaigns")
+        player_profile.active_campaigns = list(set(player_profile.active_campaigns + active_campaigns))
+        player_profile.save()
