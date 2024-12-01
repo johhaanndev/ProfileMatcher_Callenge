@@ -60,7 +60,7 @@ class GetClientConfig(APIView):
                     active_campaigns.append(campaign.name)
                 
                 if (active_campaigns):
-                    player_profile.active_campaigns.extend(active_campaigns)
+                    player_profile.active_campaigns = list(set(player_profile.active_campaigns + active_campaigns))
                     player_profile.save()
 
                 player_serialized = PlayerProfileSerializer(player_profile)
