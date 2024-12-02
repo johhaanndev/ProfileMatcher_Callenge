@@ -37,6 +37,7 @@ class GetClientConfig(APIView):
             player_profile = PlayerProfile.objects.get(player_id=player_id)
 
             campaigns = self.get_active_campaigns()
+            logger.info(f"number of active campaigns: {len(campaigns)}")
             active_campaigns = []
 
             for campaign in campaigns:
@@ -48,7 +49,7 @@ class GetClientConfig(APIView):
 
                 player_serialized = PlayerProfileSerializer(player_profile)
 
-                return Response(player_serialized.data, status=status.HTTP_200_OK)
+            return Response(player_serialized.data, status=status.HTTP_200_OK)
             
         except PlayerProfile.DoesNotExist:
             return Response({"error": "Player not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -80,6 +81,7 @@ class GetClientConfig(APIView):
             if 'items' in matchers['does_not_have'] and any(item in player_profile.inventory for item in matchers['does_not_have']['items']):
                 match = False
 
+        logger.info(f"Campaign {campaign.campaign_id} is match: {match}")
         return match
 
     def update_player_profile(self, player_profile, active_campaigns):
